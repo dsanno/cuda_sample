@@ -5,14 +5,13 @@
 
 #define MATRIX_SIZE 1024
 #define BLOCK_SIZE 32
-
-typedef unsigned int uint;
+#define SHARED_BLOCK_SIZE 128
 
 __global__ void
 matrixMul(int* inMatrixA, int* inMatrixB, int* inMatrixC);
 
 int main(int argc, char** argv){
-	uint matrixSize = sizeof(uint)* MATRIX_SIZE * MATRIX_SIZE;
+	int matrixSize = sizeof(int)* MATRIX_SIZE * MATRIX_SIZE;
 
 	int* hMatrixA;
 	int* hMatrixB;
@@ -21,7 +20,7 @@ int main(int argc, char** argv){
 	hMatrixB = (int*)malloc(matrixSize);
 
 	/* Matrixの初期値設定 */
-	uint col_idx, row_idx;
+	int col_idx, row_idx;
 	for (col_idx = 0; col_idx < MATRIX_SIZE; col_idx++){
 		for (row_idx = 0; row_idx < MATRIX_SIZE; row_idx++){
 			hMatrixA[col_idx * MATRIX_SIZE + row_idx] = rand() % 1024;
@@ -104,7 +103,7 @@ int main(int argc, char** argv){
 	}
 	printf("%d, %d\n", target, hMatrixC[row * MATRIX_SIZE + col]);
 
-	/* ホスト・デバイスメモリの開放 */
+		/* ホスト・デバイスメモリの開放 */
 	free(hMatrixA);
 	free(hMatrixB);
 	free(hMatrixC);
@@ -118,15 +117,26 @@ int main(int argc, char** argv){
 
 __global__ void
 matrixMul(int* inMatrixA, int* inMatrixB, int* inMatrixC){
-	uint col_idx = blockIdx.x * blockDim.x + threadIdx.x;
-	uint row_idx = blockIdx.y * blockDim.y + threadIdx.y;
-	uint scan_idx;
-	uint target = 0;
+	int col_idx = blockIdx.x * blockDim.x + threadIdx.x;
+	int row_idx = blockIdx.y * blockDim.y + threadIdx.y;
+	int scan_idx, scan_base;
+	int target = 0;
 
-	/*行列の演算を行う*/
-	for (scan_idx = 0; scan_idx < MATRIX_SIZE; scan_idx++) {
-		target += inMatrixA[row_idx * MATRIX_SIZE + scan_idx] * inMatrixB[scan_idx * MATRIX_SIZE + col_idx];
+	__shared__ int a[BLOCK_SIZE * BLOCK_SIZE];
+	__shared__ int b[BLOCK_SIZE * BLOCK_SIZE];
+
+	for (scan_base = 0; scan_base < MATRIX_SIZE; scan_base += BLOCK_SIZE) {
+		/* shared memory にコピー */
+		for (scan_idx = 0; scan_idx < BLOCK_SIZE; scan_idx += BLOCK_SIZE) {
+			a[threadIdx.y * BLOCK_SIZE + scan_idx + threadIdx.x] = inMatrixA[row_idx * MATRIX_SIZE + scan_base + scan_idx + threadIdx.x];
+			b[(scan_idx + threadIdx.y) * BLOCK_SIZE + threadIdx.x] = inMatrixB[(scan_base + scan_idx + threadIdx.y) * MATRIX_SIZE + col_idx];
+		}
+		__syncthreads();
+		/* 行列の演算を行う */
+		for (scan_idx = 0; scan_idx < BLOCK_SIZE; scan_idx++) {
+			target += a[threadIdx.y * BLOCK_SIZE + scan_idx] * b[scan_idx * BLOCK_SIZE + threadIdx.x];
+		}
+		__syncthreads();
 	}
-	
 	inMatrixC[row_idx * MATRIX_SIZE + col_idx] = target;
 }
