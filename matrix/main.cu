@@ -6,13 +6,11 @@
 #define MATRIX_SIZE 1024
 #define BLOCK_SIZE 32
 
-typedef unsigned int uint;
-
 __global__ void
 matrixMul(int* inMatrixA, int* inMatrixB, int* inMatrixC);
 
 int main(int argc, char** argv){
-	uint matrixSize = sizeof(uint)* MATRIX_SIZE * MATRIX_SIZE;
+	int matrixSize = sizeof(int)* MATRIX_SIZE * MATRIX_SIZE;
 
 	int* hMatrixA;
 	int* hMatrixB;
@@ -21,7 +19,7 @@ int main(int argc, char** argv){
 	hMatrixB = (int*)malloc(matrixSize);
 
 	/* MatrixÇÃèâä˙ílê›íË */
-	uint col_idx, row_idx;
+	int col_idx, row_idx;
 	for (col_idx = 0; col_idx < MATRIX_SIZE; col_idx++){
 		for (row_idx = 0; row_idx < MATRIX_SIZE; row_idx++){
 			hMatrixA[col_idx * MATRIX_SIZE + row_idx] = rand() % 1024;
@@ -118,10 +116,10 @@ int main(int argc, char** argv){
 
 __global__ void
 matrixMul(int* inMatrixA, int* inMatrixB, int* inMatrixC){
-	uint col_idx = blockIdx.x * blockDim.x + threadIdx.x;
-	uint row_idx = blockIdx.y * blockDim.y + threadIdx.y;
-	uint scan_idx;
-	uint target = 0;
+	int col_idx = blockIdx.x * blockDim.x + threadIdx.x;
+	int row_idx = blockIdx.y * blockDim.y + threadIdx.y;
+	int scan_idx;
+	int target = 0;
 
 	/*çsóÒÇÃââéZÇçsÇ§*/
 	for (scan_idx = 0; scan_idx < MATRIX_SIZE; scan_idx++) {
