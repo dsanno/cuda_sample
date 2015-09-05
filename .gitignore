@@ -2,4 +2,6 @@
 *.sdf
 *.pdb
 *.suo
+/*/Debug
+/*/Release
 /*/x64
