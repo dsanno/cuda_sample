@@ -142,13 +142,12 @@ int main(int argc, char** argv){
 static int
 load(char *in_file_path, int *out_number) {
 	char buf[1024];
-	errno_t error;
 	FILE *fp;
 	int size;
 	int i, n;
 
-	error = fopen_s(&fp, in_file_path, "r");
-	if (error != 0) {
+	fp = fopen(in_file_path, "r");
+	if (fp == NULL) {
 		return 0;
 	}
 	size = fread(buf, 1, sizeof(buf), fp);
