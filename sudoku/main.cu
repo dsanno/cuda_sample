@@ -3,7 +3,6 @@
 #include <time.h>
 #include <cuda_runtime.h>
 
-#define GRID_SIZE 4
 #define BLOCK_SIZE 224
 #define MAX_STATIC_SIZE 4096
 #define MAX_PROBLEM_NUM 1024
@@ -48,6 +47,8 @@ int main(int argc, char** argv){
 	cudaMalloc((void**)&device_count, sizeof(int));
 	valid_number = (int*)malloc(sizeof(int) * CELL_NUM * MAX_STATIC_SIZE);
 	cudaMalloc((void**)&device_static_number, sizeof(int) * CELL_NUM * MAX_STATIC_SIZE);
+	cudaDeviceProp deviceProp;
+	cudaGetDeviceProperties(&deviceProp, 0);
 
 	cudaError_t error;
 	cudaEvent_t start;
@@ -89,7 +90,7 @@ int main(int argc, char** argv){
 			cudaMemset(device_count, 0, sizeof(int));
 
 			dim3 block(BLOCK_SIZE, 1);
-			dim3 grid(GRID_SIZE, 1);
+			dim3 grid(deviceProp.multiProcessorCount, 1);
 			solve_sudoku << <grid, block >> >(device_static_number, device_result, device_count);
 			cudaThreadSynchronize();
 
