@@ -78,7 +78,7 @@ main(int argc, char** argv) {
 		printf("anser count: %d\n", answer_num[i]);
 		for (j = 0; j < ROW_NUM; j++) {
 			for (k = 0; k < ROW_NUM; k++) {
-				printf("%d ", result[j * ROW_NUM + k]);
+				printf("%d ", result[i * CELL_NUM + j * ROW_NUM + k]);
 			}
 			printf("\n");
 		}
