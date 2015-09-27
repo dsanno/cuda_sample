@@ -4,7 +4,7 @@
 #include <cuda_runtime.h>
 
 #define BLOCK_SIZE 224
-#define MAX_STATIC_SIZE 4096
+#define MAX_STATIC_SIZE_PER_BLOCK 1024
 #define MAX_PROBLEM_NUM 1024
 #define CELL_NUM 81
 #define ROW_NUM 9
@@ -31,6 +31,8 @@ int main(int argc, char** argv){
 	int *device_static_number;
 	int *valid_number;
 	int i, j, k;
+	int max_static_size;
+	cudaDeviceProp deviceProp;
 
 	if (argc < 2 || argc >= 3) {
 		printf("Usage: sudoku_cpu file_path");
@@ -43,12 +45,12 @@ int main(int argc, char** argv){
 		return 1;
 	}
 
+	cudaGetDeviceProperties(&deviceProp, 0);
+	max_static_size = MAX_STATIC_SIZE_PER_BLOCK * deviceProp.multiProcessorCount;
 	cudaMalloc((void**)&device_result, sizeof(int) * CELL_NUM);
 	cudaMalloc((void**)&device_count, sizeof(int));
-	valid_number = (int*)malloc(sizeof(int) * CELL_NUM * MAX_STATIC_SIZE);
-	cudaMalloc((void**)&device_static_number, sizeof(int) * CELL_NUM * MAX_STATIC_SIZE);
-	cudaDeviceProp deviceProp;
-	cudaGetDeviceProperties(&deviceProp, 0);
+	valid_number = (int*)malloc(sizeof(int)* CELL_NUM * max_static_size);
+	cudaMalloc((void**)&device_static_number, sizeof(int)* CELL_NUM * max_static_size);
 
 	cudaError_t error;
 	cudaEvent_t start;
@@ -82,7 +84,7 @@ int main(int argc, char** argv){
 	for (i = 0; i < problem_num; i++) {
 		answer_num[i] = 0;
 		do {
-			count = find_valid_number(&host_static_number[i * CELL_NUM], 16, MAX_STATIC_SIZE, valid_number, &valid_index, initial);
+			count = find_valid_number(&host_static_number[i * CELL_NUM], 16, max_static_size, valid_number, &valid_index, initial);
 			cudaMemcpy(device_static_number, valid_number, sizeof(int)* CELL_NUM * count, cudaMemcpyHostToDevice);
 			cudaMemcpyToSymbol(static_count, &count, sizeof(int));
 			cudaMemcpyToSymbol(next_number, host_next_number, sizeof(host_next_number));
