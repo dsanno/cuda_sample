@@ -3,7 +3,7 @@
 #include <time.h>
 #include <cuda_runtime.h>
 
-#define BLOCK_SIZE 224
+#define BLOCK_SIZE 352
 #define MAX_STATIC_SIZE_PER_BLOCK 1024
 #define MAX_PROBLEM_NUM 1024
 #define CELL_NUM 81
@@ -15,6 +15,7 @@ static int find_valid_number(const int *in_static_number, int in_depth, int in_m
 
 __constant__ int static_count;
 __constant__ int next_number[NEXT_NUMBER_NUM];
+__constant__ int empty[CELL_NUM];
 __global__ void solve_sudoku(int *in_static_number, int *out_result, int *out_count);
 
 int main(int argc, char** argv){
@@ -23,7 +24,8 @@ int main(int argc, char** argv){
 	int valid_index;
 	int initial[CELL_NUM];
 	int answer_num[MAX_PROBLEM_NUM];
-	int host_next_number[512];
+	int host_next_number[NEXT_NUMBER_NUM];
+	int host_empty[CELL_NUM];
 	int problem_num;
 	int *device_result;
 	int *device_count;
@@ -90,6 +92,15 @@ int main(int argc, char** argv){
 			cudaMemcpyToSymbol(next_number, host_next_number, sizeof(host_next_number));
 			cudaMemset(device_result, 0, sizeof(int)* CELL_NUM);
 			cudaMemset(device_count, 0, sizeof(int));
+			k = 0;
+			for (j = 0; j < CELL_NUM; j++) {
+				if (valid_number[j] == 0) {
+					host_empty[k] = j;
+					k++;
+				}
+			}
+			host_empty[k] = -1;
+			cudaMemcpyToSymbol(empty, host_empty, sizeof(empty));
 
 			dim3 block(BLOCK_SIZE, 1);
 			dim3 grid(deviceProp.multiProcessorCount, 1);
@@ -333,7 +344,6 @@ solve_sudoku(int *in_static_number, int *out_result, int *out_count) {
 	__shared__ short int col_flag[ROW_NUM][BLOCK_SIZE];
 	__shared__ short int box_flag[ROW_NUM][BLOCK_SIZE];
 	__shared__ char number[CELL_NUM][BLOCK_SIZE];
-	__shared__ char empty[CELL_NUM][BLOCK_SIZE];
 	__shared__ int static_index;
 	__shared__ int static_index_end;
 	int pos;
@@ -362,7 +372,6 @@ solve_sudoku(int *in_static_number, int *out_result, int *out_count) {
 				box_flag[pos][threadIdx.x] = 0;
 			}
 			offset = i * CELL_NUM;
-			i = 0;
 #pragma unroll
 			for (pos = 0; pos < CELL_NUM; pos++) {
 				number[pos][threadIdx.x] = in_static_number[offset + pos];
@@ -371,15 +380,11 @@ solve_sudoku(int *in_static_number, int *out_result, int *out_count) {
 					row_flag[row[pos]][threadIdx.x] |= flag;
 					col_flag[col[pos]][threadIdx.x] |= flag;
 					box_flag[box[pos]][threadIdx.x] |= flag;
-				} else {
-					empty[i][threadIdx.x] = pos;
-					i++;
 				}
 			}
-			empty[i][threadIdx.x] = -1;
 			index = 0;
 		}
-		pos = empty[index][threadIdx.x];
+		pos = empty[index];
 		if (pos < 0) {
 			int old_found = atomicAdd(&found, 1);
 			if (old_found == 0) {
@@ -389,7 +394,7 @@ solve_sudoku(int *in_static_number, int *out_result, int *out_count) {
 				}
 			}
 			index--;
-			pos = empty[index][threadIdx.x];
+			pos = empty[index];
 			flag = 1 << number[pos][threadIdx.x];
 			row_flag[row[pos]][threadIdx.x] ^= flag;
 			col_flag[col[pos]][threadIdx.x] ^= flag;
@@ -403,7 +408,7 @@ solve_sudoku(int *in_static_number, int *out_result, int *out_count) {
 			if (index < 0) {
 				continue;
 			}
-			pos = empty[index][threadIdx.x];
+			pos = empty[index];
 			flag = 1 << number[pos][threadIdx.x];
 		} else {
 			flag = 1 << number[pos][threadIdx.x];
