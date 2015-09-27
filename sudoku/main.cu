@@ -35,6 +35,7 @@ int main(int argc, char** argv){
 	int i, j, k;
 	int max_static_size;
 	cudaDeviceProp deviceProp;
+	clock_t clock_start, clock_stop;
 
 	if (argc < 2 || argc >= 3) {
 		printf("Usage: sudoku_cpu file_path");
@@ -83,6 +84,7 @@ int main(int argc, char** argv){
 		}
 	}
 	valid_index = -1;
+	clock_start = clock();
 	for (i = 0; i < problem_num; i++) {
 		answer_num[i] = 0;
 		do {
@@ -114,6 +116,7 @@ int main(int argc, char** argv){
 			answer_num[i] += count;
 		} while (valid_index >= 0);
 	}
+	clock_stop = clock();
 
 	error = cudaEventRecord(stop, NULL);
 	if (error != cudaSuccess) {
@@ -134,6 +137,7 @@ int main(int argc, char** argv){
 		exit(EXIT_FAILURE);
 	}
 	printf("Processing time: %f (msec)\n", msecTotal);
+	printf("%f (msec)\n", (double)(clock_stop - clock_start) / CLOCKS_PER_SEC * 1000);
 
 	for (i = 0; i < problem_num; i++) {
 		printf("%d found\n", answer_num[i]);
